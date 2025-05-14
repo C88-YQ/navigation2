@@ -785,16 +785,26 @@ bool ControllerServer::isGoalReached()
     map_frame_, robot_base_frame_, 0.1))
   {
     return false;
-  }
-
+  } 
   nav_2d_msgs::msg::Twist2D twist = getThresholdedTwist(odom_sub_->getTwist());
   geometry_msgs::msg::Twist velocity = nav_2d_utils::twist2Dto3D(twist);
 
   geometry_msgs::msg::PoseStamped transformed_end_pose;
   rclcpp::Duration tolerance(rclcpp::Duration::from_seconds(costmap_ros_->getTransformTolerance()));
+  // 暂时解决，倒反天罡的改发
   nav_2d_utils::transformPose(
-    costmap_ros_->getTfBuffer(), costmap_ros_->getGlobalFrameID(),
+    costmap_ros_->getTfBuffer(), "map",
     end_pose_, transformed_end_pose, tolerance);
+  
+  RCLCPP_DEBUG(get_logger(), "global frame: %s", costmap_ros_->getGlobalFrameID().c_str());
+
+  RCLCPP_DEBUG(get_logger(), "now yaw: %.2f, goal yaw: %.2f",
+    tf2::getYaw(pose.pose.orientation),
+    tf2::getYaw(transformed_end_pose.pose.orientation));
+  
+  RCLCPP_DEBUG(get_logger(), "now: [ %.2f, %.2f ] goal: [ %.2f, %.2f ]",
+    pose.pose.position.x, pose.pose.position.y,
+    transformed_end_pose.pose.position.x, transformed_end_pose.pose.position.y);
 
   return goal_checkers_[current_goal_checker_]->isGoalReached(
     pose.pose, transformed_end_pose.pose,
