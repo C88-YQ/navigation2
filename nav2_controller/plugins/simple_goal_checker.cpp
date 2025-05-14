@@ -93,6 +93,7 @@ void SimpleGoalChecker::initialize(
 void SimpleGoalChecker::reset()
 {
   check_xy_ = true;
+  is_xy_reached_ = false;
 }
 
 bool SimpleGoalChecker::isGoalReached(
@@ -103,8 +104,10 @@ bool SimpleGoalChecker::isGoalReached(
     double dx = query_pose.position.x - goal_pose.position.x,
       dy = query_pose.position.y - goal_pose.position.y;
     if (dx * dx + dy * dy > xy_goal_tolerance_sq_) {
+      is_xy_reached_ = false;
       return false;
     }
+    is_xy_reached_ = true;
     // We are within the window
     // If we are stateful, change the state.
     if (stateful_) {

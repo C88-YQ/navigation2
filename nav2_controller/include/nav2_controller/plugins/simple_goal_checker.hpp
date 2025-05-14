@@ -70,10 +70,12 @@ public:
   bool getTolerances(
     geometry_msgs::msg::Pose & pose_tolerance,
     geometry_msgs::msg::Twist & vel_tolerance) override;
-
+  bool isXYGoalReached() override { return is_xy_reached_; }
+  
 protected:
   double xy_goal_tolerance_, yaw_goal_tolerance_;
   bool stateful_, check_xy_;
+  bool is_xy_reached_;
   // Cached squared xy_goal_tolerance_
   double xy_goal_tolerance_sq_;
   // Dynamic parameters handler

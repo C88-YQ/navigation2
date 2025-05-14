@@ -86,7 +86,8 @@ public:
   virtual bool isGoalReached(
     const geometry_msgs::msg::Pose & query_pose, const geometry_msgs::msg::Pose & goal_pose,
     const geometry_msgs::msg::Twist & velocity) = 0;
-
+  
+  virtual bool isXYGoalReached() = 0;
   /**
    * @brief Get the maximum possible tolerances used for goal checking in the major types.
    * Any field without a valid entry is replaced with std::numeric_limits<double>::lowest()

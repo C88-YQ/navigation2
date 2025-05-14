@@ -51,6 +51,9 @@ ControllerServer::ControllerServer(const rclcpp::NodeOptions & options)
 
   declare_parameter("controller_frequency", 20.0);
 
+  declare_parameter("map_frame", "map");
+  declare_parameter("robot_base_frame", "base_footprint");
+
   declare_parameter("action_server_result_timeout", 10.0);
 
   declare_parameter("progress_checker_plugins", default_progress_checker_ids_);
@@ -122,6 +125,8 @@ ControllerServer::on_configure(const rclcpp_lifecycle::State & state)
   progress_checker_types_.resize(progress_checker_ids_.size());
 
   get_parameter("controller_frequency", controller_frequency_);
+  get_parameter("map_frame", map_frame_);
+  get_parameter("robot_base_frame", robot_base_frame_);
   get_parameter("min_x_velocity_threshold", min_x_velocity_threshold_);
   get_parameter("min_y_velocity_threshold", min_y_velocity_threshold_);
   get_parameter("min_theta_velocity_threshold", min_theta_velocity_threshold_);
@@ -776,7 +781,9 @@ bool ControllerServer::isGoalReached()
 {
   geometry_msgs::msg::PoseStamped pose;
 
-  if (!getRobotPose(pose)) {
+  if(!nav2_util::getCurrentPose(pose, *(costmap_ros_->getTfBuffer()),
+    map_frame_, robot_base_frame_, 0.1))
+  {
     return false;
   }
 
