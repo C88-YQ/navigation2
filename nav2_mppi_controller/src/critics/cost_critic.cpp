@@ -95,7 +95,7 @@ float CostCritic::findCircumscribedCost(
     inflation_layer_name_);
   if (inflation_layer != nullptr) {
     const double resolution = costmap->getCostmap()->getResolution();
-    result = inflation_layer->computeCost(circum_radius / resolution);
+    result = inflation_layer->computeCost(circum_radius / resolution, costmap->getLayeredCostmap()->getInscribedRadius());
   } else {
     RCLCPP_WARN(
       logger_,

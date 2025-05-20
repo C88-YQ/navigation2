@@ -791,16 +791,20 @@ bool ControllerServer::isGoalReached()
 
   geometry_msgs::msg::PoseStamped transformed_end_pose;
   rclcpp::Duration tolerance(rclcpp::Duration::from_seconds(costmap_ros_->getTransformTolerance()));
-  // 暂时解决，倒反天罡的改发
+
   nav_2d_utils::transformPose(
-    costmap_ros_->getTfBuffer(), "map",
+    costmap_ros_->getTfBuffer(), costmap_ros_->getGlobalFrameID(),
     end_pose_, transformed_end_pose, tolerance);
   
-  RCLCPP_DEBUG(get_logger(), "global frame: %s", costmap_ros_->getGlobalFrameID().c_str());
-
-  RCLCPP_DEBUG(get_logger(), "now yaw: %.2f, goal yaw: %.2f",
+  // RCLCPP_DEBUG(get_logger(), "global frame: %s", costmap_ros_->getGlobalFrameID().c_str());
+  // RCLCPP_INFO(get_logger(), "end pose frame: %s", end_pose_.header.frame_id.c_str());
+  
+  RCLCPP_DEBUG(get_logger(), "now yaw: %f, goal yaw: %f, delta yaw: %f",
     tf2::getYaw(pose.pose.orientation),
-    tf2::getYaw(transformed_end_pose.pose.orientation));
+    tf2::getYaw(transformed_end_pose.pose.orientation),
+    tf2NormalizeAngle(
+      tf2::getYaw(transformed_end_pose.pose.orientation) -
+      tf2::getYaw(pose.pose.orientation)));
   
   RCLCPP_DEBUG(get_logger(), "now: [ %.2f, %.2f ] goal: [ %.2f, %.2f ]",
     pose.pose.position.x, pose.pose.position.y,

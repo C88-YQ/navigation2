@@ -95,6 +95,11 @@ InflationLayer::onInitialize()
   declareParameter("inflate_unknown", rclcpp::ParameterValue(false));
   declareParameter("inflate_around_unknown", rclcpp::ParameterValue(false));
 
+  declareParameter("adjusted_inscribed_radius", rclcpp::ParameterValue(0.55));
+  declareParameter("adjusted_radius_polygons", rclcpp::ParameterValue(std::vector<std::string>()));
+  declareParameter("enable_adjusted_radius", rclcpp::ParameterValue(false));
+  declareParameter("is_local_costmap", rclcpp::ParameterValue(false));
+
   {
     auto node = node_.lock();
     if (!node) {
@@ -106,6 +111,12 @@ InflationLayer::onInitialize()
     node->get_parameter(name_ + "." + "inflate_unknown", inflate_unknown_);
     node->get_parameter(name_ + "." + "inflate_around_unknown", inflate_around_unknown_);
 
+    node->get_parameter(name_ + "." + "adjusted_inscribed_radius", adjusted_inscribed_radius_);
+    node->get_parameter(name_ + "." + "adjusted_radius_polygons", raw_adjusted_radius_polygons_);
+    node->get_parameter(name_ + "." + "enable_adjusted_radius", enable_adjusted_radius_);
+    node->get_parameter(name_ + "." + "is_local_costmap", is_local_costmap_);
+    parsePolygonList();
+
     dyn_params_handler_ = node->add_on_set_parameters_callback(
       std::bind(
         &InflationLayer::dynamicParametersCallback,
@@ -116,6 +127,7 @@ InflationLayer::onInitialize()
   seen_.clear();
   cached_distances_.clear();
   cached_costs_.clear();
+  adjusted_cached_costs_.clear();
   need_reinflation_ = false;
   cell_inflation_radius_ = cellDistance(inflation_radius_);
   matchSize();
@@ -280,6 +292,43 @@ InflationLayer::updateCosts(
 
       // assign the cost associated with the distance from an obstacle to the cell
       unsigned char cost = costLookup(mx, my, sx, sy);
+
+      // 如果当前点在定义的需要减小robot_radius的多边形内，使用adjusted_inscribed_radius计算膨胀
+      double world_x, world_y;
+      master_grid.mapToWorld(mx, my, world_x, world_y);
+      if(is_local_costmap_)
+      {
+        geometry_msgs::msg::PointStamped odom_point;
+        odom_point.header.frame_id = "odom";
+        odom_point.header.stamp = clock_->now(); 
+        odom_point.point.x = world_x;
+        odom_point.point.y = world_y;
+        odom_point.point.z = 0.0;
+
+        try 
+        {
+              geometry_msgs::msg::PointStamped map_point = tf_->transform(odom_point, "map", tf2::durationFromSec(0.1));
+
+              double map_x = map_point.point.x;
+              double map_y = map_point.point.y;
+
+              world_x = map_x;
+              world_y = map_y;
+
+        } catch (tf2::TransformException &ex) {
+          RCLCPP_WARN(rclcpp::get_logger("tf_lookup"), "Transform failed: %s", ex.what());
+        }
+      }
+
+      if (enable_adjusted_radius_) {
+        for (const auto & polygen : adjusted_radius_polygons_) {
+        if (isPointInPolygon(world_x, world_y, polygen)) {
+          cost = adjustedCostLookup(mx, my, sx, sy);
+          break;
+          }
+        }
+      }
+
       unsigned char old_cost = master_array[index];
       // In order to avoid artifacts appeared out of boundary areas
       // when some layer is going after inflation_layer,
@@ -366,6 +415,7 @@ InflationLayer::computeCaches()
   // based on the inflation radius... compute distance and cost caches
   if (cell_inflation_radius_ != cached_cell_inflation_radius_) {
     cached_costs_.resize(cache_length_ * cache_length_);
+    adjusted_cached_costs_.resize(cache_length_ * cache_length_);
     cached_distances_.resize(cache_length_ * cache_length_);
 
     for (unsigned int i = 0; i < cache_length_; ++i) {
@@ -379,7 +429,8 @@ InflationLayer::computeCaches()
 
   for (unsigned int i = 0; i < cache_length_; ++i) {
     for (unsigned int j = 0; j < cache_length_; ++j) {
-      cached_costs_[i * cache_length_ + j] = computeCost(cached_distances_[i * cache_length_ + j]);
+      cached_costs_[i * cache_length_ + j] = computeCost(cached_distances_[i * cache_length_ + j], inscribed_radius_);
+      adjusted_cached_costs_[i * cache_length_ + j] = computeCost(cached_distances_[i * cache_length_ + j], adjusted_inscribed_radius_);
     }
   }
 
@@ -428,6 +479,45 @@ InflationLayer::generateIntegerDistances()
   return level;
 }
 
+bool InflationLayer::isPointInPolygon(double x, double y, const std::vector<geometry_msgs::msg::Point> & polygon)
+{
+  bool inside = false;
+  int n = polygon.size();
+  for (int i = 0, j = n - 1; i < n; j = i++) {
+    double xi = polygon[i].x, yi = polygon[i].y;
+    double xj = polygon[j].x, yj = polygon[j].y;
+
+    bool intersect = ((yi > y) != (yj > y)) &&
+                     (x < (xj - xi) * (y - yi) / (yj - yi + 1e-10) + xi);
+    if (intersect)
+      inside = !inside;
+  }
+  return inside;
+}
+
+void InflationLayer::parsePolygonList()
+{
+  adjusted_radius_polygons_.clear();
+
+  for (const auto & poly_str : raw_adjusted_radius_polygons_) {
+    std::vector<geometry_msgs::msg::Point> polygon;
+
+    std::stringstream ss(poly_str);
+    std::string point_str;
+
+    while (std::getline(ss, point_str, ';')) {
+      geometry_msgs::msg::Point p;
+      if (sscanf(point_str.c_str(), "%lf,%lf", &p.x, &p.y) == 2) {
+        polygon.push_back(p);
+      }
+    }
+
+    if (!polygon.empty()) {
+      adjusted_radius_polygons_.push_back(polygon);
+    }
+  }
+}
+
 /**
   * @brief Callback executed when a parameter change is detected
   * @param event ParameterEvent message
@@ -474,6 +564,17 @@ InflationLayer::dynamicParametersCallback(
       {
         inflate_around_unknown_ = parameter.as_bool();
         need_reinflation_ = true;
+      } else if (param_name == name_ + "." + "enable_adjusted_radius" && // NOLINT
+        enable_adjusted_radius_ != parameter.as_bool())
+      {
+        enable_adjusted_radius_ = parameter.as_bool();
+        need_reinflation_ = true;
+      }else if (param_name == name_ + "." + "adjusted_inscribed_radius" && // NOLINT
+        adjusted_inscribed_radius_ != parameter.as_double())
+      {
+        adjusted_inscribed_radius_ = parameter.as_double();
+        need_reinflation_ = true;
+        need_cache_recompute = true;
       }
     }
   }
