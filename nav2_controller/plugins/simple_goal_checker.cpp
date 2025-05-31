@@ -68,6 +68,8 @@ void SimpleGoalChecker::initialize(
 {
   plugin_name_ = plugin_name;
   auto node = parent.lock();
+  
+  RCLCPP_WARN(node->get_logger(), "!!!!!!!!!!!!!!!!Adjusted Navigation2!!!!!!!!!!!!!!!!");
 
   nav2_util::declare_parameter_if_not_declared(
     node,

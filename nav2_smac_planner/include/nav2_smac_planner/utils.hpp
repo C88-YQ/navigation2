@@ -83,7 +83,7 @@ inline double findCircumscribedCost(std::shared_ptr<nav2_costmap_2d::Costmap2DRO
   if (inflation_layer != nullptr) {
     double circum_radius = costmap->getLayeredCostmap()->getCircumscribedRadius();
     double resolution = costmap->getCostmap()->getResolution();
-    result = static_cast<double>(inflation_layer->computeCost(circum_radius / resolution, costmap->getLayeredCostmap()->getInscribedRadius()));
+    result = static_cast<double>(inflation_layer->computeCost(circum_radius / resolution));
   } else {
     RCLCPP_WARN(
       rclcpp::get_logger("computeCircumscribedCost"),

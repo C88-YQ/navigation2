@@ -48,7 +48,6 @@
 #include "nav2_costmap_2d/layer.hpp"
 #include "nav2_costmap_2d/layered_costmap.hpp"
 #include "nav2_costmap_2d/costmap_2d_ros.hpp"
-#include "geometry_msgs/msg/point.hpp"
 
 namespace nav2_costmap_2d
 {
@@ -73,9 +72,6 @@ public:
   }
   unsigned int x_, y_;
   unsigned int src_x_, src_y_;
-
-  bool isPointInPolygon(double x, double y, const std::vector<geometry_msgs::msg::Point> & polygon);
-  void parsePolygonList();
 };
 
 /**
@@ -150,22 +146,21 @@ public:
   /** @brief  Given a distance, compute a cost.
    * @param  distance The distance from an obstacle in cells
    * @return A cost value for the distance */
-  inline unsigned char computeCost(double distance, double inscribed_radius) const
+  inline unsigned char computeCost(double distance) const
   {
     unsigned char cost = 0;
     if (distance == 0) {
       cost = LETHAL_OBSTACLE;
-    } else if (distance * resolution_ <= inscribed_radius) {
+    } else if (distance * resolution_ <= inscribed_radius_) {
       cost = INSCRIBED_INFLATED_OBSTACLE;
     } else {
       // make sure cost falls off by Euclidean distance
       double factor =
-        exp(-1.0 * cost_scaling_factor_ * (distance * resolution_ - inscribed_radius));
+        exp(-1.0 * cost_scaling_factor_ * (distance * resolution_ - inscribed_radius_));
       cost = static_cast<unsigned char>((INSCRIBED_INFLATED_OBSTACLE - 1) * factor);
     }
     return cost;
   }
-
 
   static std::shared_ptr<nav2_costmap_2d::InflationLayer> getInflationLayer(
     std::shared_ptr<nav2_costmap_2d::Costmap2DROS> & costmap_ros,
@@ -247,14 +242,6 @@ protected:
     return cached_costs_[dx * cache_length_ + dy];
   }
 
-  inline unsigned char adjustedCostLookup(
-    unsigned int mx, unsigned int my, unsigned int src_x,
-    unsigned int src_y)
-  {
-    unsigned int dx = (mx > src_x) ? mx - src_x : src_x - mx;
-    unsigned int dy = (my > src_y) ? my - src_y : src_y - my;
-    return adjusted_cached_costs_[dx * cache_length_ + dy];
-  }
   /**
    * @brief Compute cached dsitances
    */
@@ -280,9 +267,6 @@ protected:
     unsigned int index, unsigned int mx, unsigned int my,
     unsigned int src_x, unsigned int src_y);
 
-  bool isPointInPolygon(double x, double y, const std::vector<geometry_msgs::msg::Point> & polygon);
-  void parsePolygonList();
-
   /**
    * @brief Callback executed when a parameter change is detected
    * @param event ParameterEvent message
@@ -290,21 +274,17 @@ protected:
   rcl_interfaces::msg::SetParametersResult
   dynamicParametersCallback(std::vector<rclcpp::Parameter> parameters);
 
-  double inflation_radius_, inscribed_radius_, cost_scaling_factor_, adjusted_inscribed_radius_;
+  double inflation_radius_, inscribed_radius_, cost_scaling_factor_;
   bool inflate_unknown_, inflate_around_unknown_;
-  bool enable_adjusted_radius_, is_local_costmap_;
   unsigned int cell_inflation_radius_;
   unsigned int cached_cell_inflation_radius_;
   std::vector<std::vector<CellData>> inflation_cells_;
-  std::vector<std::string> raw_adjusted_radius_polygons_;
-  std::vector<std::vector<geometry_msgs::msg::Point>> adjusted_radius_polygons_;
 
   double resolution_;
 
   std::vector<bool> seen_;
 
   std::vector<unsigned char> cached_costs_;
-  std::vector<unsigned char> adjusted_cached_costs_;
   std::vector<double> cached_distances_;
   std::vector<std::vector<int>> distance_matrix_;
   unsigned int cache_length_;
