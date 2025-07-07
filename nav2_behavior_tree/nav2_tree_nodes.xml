@@ -277,6 +277,11 @@
       <input_port name="server_timeout"> Server timeout </input_port>
     </Condition>
 
+    <Condition ID="IsGoalNearby">
+      <input_port name="path"> Path to validate </input_port>
+      <input_port name="min_distance"> Minimum distance to replan </input_port>
+    </Condition>
+
     <Condition ID="WouldAControllerRecoveryHelp">
       <input_port name="error_code">Error code</input_port>
     </Condition>
