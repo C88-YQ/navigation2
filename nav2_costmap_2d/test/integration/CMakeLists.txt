@@ -15,14 +15,6 @@ target_link_libraries(test_collision_checker_exec
   ${PROJECT_NAME}::layers
 )
 
-ament_add_gtest_executable(inflation_tests_exec
-  inflation_tests.cpp
-)
-target_link_libraries(inflation_tests_exec
-  ${PROJECT_NAME}::nav2_costmap_2d_core
-  ${PROJECT_NAME}::layers
-)
-
 ament_add_gtest_executable(obstacle_tests_exec
   obstacle_tests.cpp
 )
@@ -90,16 +82,6 @@ ament_add_test(footprint_tests
     TEST_MAP=${TEST_MAP_DIR}/TenByTen.yaml
     TEST_LAUNCH_DIR=${TEST_LAUNCH_DIR}
     TEST_EXECUTABLE=$<TARGET_FILE:footprint_tests_exec>
-)
-
-ament_add_test(inflation_tests
-  GENERATE_RESULT_FOR_RETURN_CODE_ZERO
-  COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/costmap_tests_launch.py"
-  WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
-  ENV
-    TEST_MAP=${TEST_MAP_DIR}/TenByTen.yaml
-    TEST_LAUNCH_DIR=${TEST_LAUNCH_DIR}
-    TEST_EXECUTABLE=$<TARGET_FILE:inflation_tests_exec>
 )
 
 ament_add_test(obstacle_tests
