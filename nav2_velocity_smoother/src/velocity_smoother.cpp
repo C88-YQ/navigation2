@@ -386,6 +386,9 @@ void VelocitySmoother::smootherTimer()
     fabs(cmd_vel->twist.linear.y) < deadband_velocities_[1] ? 0.0 : cmd_vel->twist.linear.y;
   cmd_vel->twist.angular.z =
     fabs(cmd_vel->twist.angular.z) < deadband_velocities_[2] ? 0.0 : cmd_vel->twist.angular.z;
+  cmd_vel->twist.linear.z = command_->twist.linear.z;
+  cmd_vel->twist.angular.x = command_->twist.angular.x;
+  cmd_vel->twist.angular.y = command_->twist.angular.y;
 
   smoothed_cmd_pub_->publish(std::move(cmd_vel));
 }

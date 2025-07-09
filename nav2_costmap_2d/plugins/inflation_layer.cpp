@@ -98,7 +98,6 @@ InflationLayer::onInitialize()
   declareParameter("adjusted_inscribed_radius", rclcpp::ParameterValue(0.55));
   declareParameter("adjusted_radius_polygons", rclcpp::ParameterValue(std::vector<std::string>()));
   declareParameter("enable_adjusted_radius", rclcpp::ParameterValue(false));
-  declareParameter("is_local_costmap", rclcpp::ParameterValue(false));
 
   {
     auto node = node_.lock();
@@ -114,7 +113,6 @@ InflationLayer::onInitialize()
     node->get_parameter(name_ + "." + "adjusted_inscribed_radius", adjusted_inscribed_radius_);
     node->get_parameter(name_ + "." + "adjusted_radius_polygons", raw_adjusted_radius_polygons_);
     node->get_parameter(name_ + "." + "enable_adjusted_radius", enable_adjusted_radius_);
-    node->get_parameter(name_ + "." + "is_local_costmap", is_local_costmap_);
     parsePolygonList();
 
     dyn_params_handler_ = node->add_on_set_parameters_callback(
@@ -296,29 +294,6 @@ InflationLayer::updateCosts(
       // 如果当前点在定义的需要减小robot_radius的多边形内，使用adjusted_inscribed_radius计算膨胀
       double world_x, world_y;
       master_grid.mapToWorld(mx, my, world_x, world_y);
-      if(is_local_costmap_)
-      {
-        geometry_msgs::msg::PointStamped odom_point;
-        odom_point.header.frame_id = "odom";
-        odom_point.header.stamp = clock_->now(); 
-        odom_point.point.x = world_x;
-        odom_point.point.y = world_y;
-        odom_point.point.z = 0.0;
-
-        try 
-        {
-              geometry_msgs::msg::PointStamped map_point = tf_->transform(odom_point, "map", tf2::durationFromSec(0.1));
-
-              double map_x = map_point.point.x;
-              double map_y = map_point.point.y;
-
-              world_x = map_x;
-              world_y = map_y;
-
-        } catch (tf2::TransformException &ex) {
-          RCLCPP_WARN(rclcpp::get_logger("tf_lookup"), "Transform failed: %s", ex.what());
-        }
-      }
 
       if (enable_adjusted_radius_) {
         for (const auto & polygen : adjusted_radius_polygons_) {
